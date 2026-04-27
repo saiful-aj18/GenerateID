@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bulk ID Card Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --surface3: #2d333b;
+  --border: #30363d;
+  --accent: #2563eb;
+  --accent2: #10b981;
+  --accent-hover: #1d4ed8;
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --text3: #6e7681;
+  --danger: #f85149;
+  --sidebar-w: 380px;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER */
+.app-header {
+  height: 52px;
+  min-height: 52px;
+  background: linear-gradient(90deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+  z-index: 100;
+}
+.app-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-icon {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.app-header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+.app-header .subtitle {
+  font-size: 12px;
+  color: var(--text3);
+  margin-left: 4px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+/* LAYOUT */
+.app-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.sidebar-scroll::-webkit-scrollbar { width: 4px; }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.section {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.section:first-child { padding-top: 4px; }
+.section:last-child { border-bottom: none; }
+
+.section-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+
+/* FORM CONTROLS */
+.field { margin-bottom: 10px; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+  display: block;
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+.field input[type="text"],
+.field input[type="number"] {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.field input[type="text"]:focus,
+.field input[type="number"]:focus {
+  border-color: var(--accent);
+}
+
+/* ALIGN TOGGLE */
+.align-group {
+  display: flex;
+  gap: 4px;
+}
+.align-btn {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text2);
+  padding: 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.align-btn:hover { border-color: var(--accent); color: var(--text); }
+.align-btn.active {
+  background: rgba(37,99,235,0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.align-btn svg { width: 16px; height: 16px; }
+
+/* COLOR CONTROL */
+.color-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.color-swatch-wrapper {
+  position: relative;
+  width: 36px; height: 36px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.color-swatch-wrapper input[type="color"] {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+.color-preview {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--radius) - 1px);
+  pointer-events: none;
+}
+.color-hex {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-family: monospace;
+  outline: none;
+  transition: border-color 0.15s;
+  text-transform: uppercase;
+}
+.color-hex:focus { border-color: var(--accent); }
+
+.color-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.color-row:last-child { margin-bottom: 0; }
+.color-item { display: flex; flex-direction: column; gap: 5px; }
+.color-item label { font-size: 11px; color: var(--text2); font-weight: 500; }
+
+/* SLIDER */
+.slider-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slider-control input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  background: var(--surface3);
+  border-radius: 2px;
+  outline: none;
+}
+.slider-control input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--surface);
+}
+.slider-val {
+  font-size: 12px;
+  color: var(--text2);
+  min-width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* DROP ZONES */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface2);
+}
+.dropzone:hover, .dropzone.drag-over {
+  border-color: var(--accent);
+  background: rgba(37,99,235,0.06);
+}
+.dropzone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+.dropzone-icon { font-size: 24px; margin-bottom: 6px; }
+.dropzone-text { font-size: 12px; color: var(--text2); }
+.dropzone-text strong { color: var(--accent); }
+.dropzone-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.dropzone-status {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--accent2);
+  font-weight: 500;
+}
+
+/* SIDEBAR ACTIONS */
+.sidebar-actions {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+}
+.btn {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), #1a3a8f);
+  color: #fff;
+}
+.btn-primary:hover { background: linear-gradient(135deg, var(--accent-hover), #172e7a); transform: translateY(-1px); }
+.btn-secondary {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--surface3); border-color: var(--text3); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+/* MAIN AREA */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* TABS */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  background: var(--surface);
+  gap: 0;
+}
+.tab-btn {
+  padding: 13px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: -1px;
+  font-family: 'DM Sans', sans-serif;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-badge {
+  background: var(--accent2);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+  display: none;
+}
+.tab-badge.visible { display: inline-block; }
+
+/* TAB PANELS */
+.tab-panel { display: none; flex: 1; overflow: hidden; }
+.tab-panel.active { display: flex; flex-direction: column; }
+
+/* PREVIEW PANEL */
+.preview-panel {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  gap: 16px;
+}
+.preview-panel::-webkit-scrollbar { width: 6px; }
+.preview-panel::-webkit-scrollbar-track { background: transparent; }
+.preview-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.preview-canvas-wrap {
+  width: 100%;
+  max-width: 760px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  background: #222;
+}
+.preview-canvas-wrap canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.preview-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.preview-nav button {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 36px; height: 36px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  font-family: 'DM Sans', sans-serif;
+}
+.preview-nav button:hover { background: var(--surface3); }
+.preview-nav button:disabled { opacity: 0.3; cursor: not-allowed; }
+.preview-nav span {
+  font-size: 13px;
+  color: var(--text2);
+  min-width: 80px;
+  text-align: center;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text3);
+  padding: 40px;
+}
+.empty-state .empty-icon { font-size: 52px; opacity: 0.4; }
+.empty-state h3 { font-size: 16px; color: var(--text2); }
+.empty-state p { font-size: 13px; text-align: center; max-width: 320px; line-height: 1.6; }
+
+/* GENERATED PANEL */
+.generated-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+.generated-panel::-webkit-scrollbar { width: 6px; }
+.generated-panel::-webkit-scrollbar-track { background: transparent; }
+.generated-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.progress-wrap {
+  margin-bottom: 16px;
+}
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 6px;
+}
+.progress-bar {
+  height: 6px;
+  background: var(--surface3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 3px;
+  transition: width 0.2s;
+  width: 0%;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.card-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.card-item:hover { transform: translateY(-2px); border-color: var(--border); }
+.card-item canvas { width: 100%; height: auto; display: block; }
+.card-item-footer {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+}
+.card-item-name { font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-dl-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--accent2);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.card-dl-btn:hover { background: var(--surface3); border-color: var(--accent2); }
+
+.generated-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--text3);
+  font-size: 14px;
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="logo">
+    <div class="logo-icon">🪪</div>
+    <h1>ID  Generator</h1>
+  </div>
+  <span class="subtitle">Bulk · Browser-based · No backend</span>
+</header>
+
+<div class="app-body">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-scroll">
+
+      <!-- TEXT FIELDS -->
+      <div class="section">
+        <div class="section-label">Institution Info</div>
+        <div class="field">
+          <label>Institution Name</label>
+          <input type="text" id="instName" value="Springfield University" placeholder="Institution name">
+        </div>
+        <div class="field">
+          <label>Subtitle</label>
+          <input type="text" id="instSub" value="Dept. of Academic Excellence" placeholder="Subtitle">
+        </div>
+        <div class="field">
+          <label>Card Title</label>
+          <input type="text" id="cardTitle" value="Student ID Card" placeholder="Card title">
+        </div>
+      </div>
+
+      <!-- ALIGNMENT -->
+      <div class="section">
+        <div class="section-label">Alignment</div>
+        <div class="field">
+          <label>Title Alignment</label>
+          <div class="align-group" id="titleAlignGroup">
+            <button class="align-btn active" data-val="left" title="Left">
+              <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="3" width="10" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="11" width="8" height="2" rx="1"/></svg>
+            </button>
+            <button class="align-btn" data-val="center" title="Center">
+              <svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="4" y="11" width="8" height="2" rx="1"/></svg>
+            </button>
+            <button class="align-btn" data-val="right" title="Right">
+              <svg viewBox="0 0 16 16" fill="currentColor"><rect x="5" y="3" width="10" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="7" y="11" width="8" height="2" rx="1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Info Fields Alignment</label>
+          <div class="align-group" id="infoAlignGroup">
+            <button class="align-btn active" data-val="left" title="Left">
+              <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="3" width="10" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="11" width="8" height="2" rx="1"/></svg>
+            </button>
+            <button class="align-btn" data-val="center" title="Center">
+              <svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="4" y="11" width="8" height="2" rx="1"/></svg>
+            </button>
+            <button class="align-btn" data-val="right" title="Right">
+              <svg viewBox="0 0 16 16" fill="currentColor"><rect x="5" y="3" width="10" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="7" y="11" width="8" height="2" rx="1"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TYPOGRAPHY -->
+      <div class="section">
+        <div class="section-label">Typography & Colors</div>
+        <div class="field">
+          <label for="fontSize">Font Size</label>
+          <div class="slider-control">
+            <input type="range" id="fontSize" min="14" max="26" value="16" title="Adjust font size from 14px to 26px">
+            <span class="slider-val" id="fontSizeVal">16px</span>
+          </div>
+        </div>
+        <div class="color-row">
+          <div class="color-item">
+            <label for="labelColor">Label Color</label>
+            <div class="color-control">
+              <div class="color-swatch-wrapper">
+                <div class="color-preview" id="labelColorPreview" style="background:#94a3b8"></div>
+                <input type="color" id="labelColor" value="#94a3b8">
+              </div>
+              <input type="text" class="color-hex" id="labelColorHex" value="#94A3B8" maxlength="7" placeholder="#000000">
+            </div>
+          </div>
+          <div class="color-item">
+            <label for="valueColor">Value Color</label>
+            <div class="color-control">
+              <div class="color-swatch-wrapper">
+                <div class="color-preview" id="valueColorPreview" style="background:#ffffff"></div>
+                <input type="color" id="valueColor" value="#ffffff">
+              </div>
+              <input type="text" class="color-hex" id="valueColorHex" value="#FFFFFF" maxlength="7" placeholder="#000000">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HEADER COLORS -->
+      <div class="section">
+        <div class="section-label">Header Gradient</div>
+        <div class="color-row">
+          <div class="color-item">
+            <label for="hdrLeft">Left Color</label>
+            <div class="color-control">
+              <div class="color-swatch-wrapper">
+                <div class="color-preview" id="hdrLeftPreview" style="background:#1e3a5f"></div>
+                <input type="color" id="hdrLeft" value="#1e3a5f">
+              </div>
+              <input type="text" class="color-hex" id="hdrLeftHex" value="#1E3A5F" maxlength="7" placeholder="#000000">
+            </div>
+          </div>
+          <div class="color-item">
+            <label for="hdrRight">Right Color</label>
+            <div class="color-control">
+              <div class="color-swatch-wrapper">
+                <div class="color-preview" id="hdrRightPreview" style="background:#0e4d6b"></div>
+                <input type="color" id="hdrRight" value="#0e4d6b">
+              </div>
+              <input type="text" class="color-hex" id="hdrRightHex" value="#0E4D6B" maxlength="7" placeholder="#000000">
+            </div>
+          </div>
+        </div>
+        <div class="color-row">
+          <div class="color-item">
+            <label for="accentColor">Accent Strip</label>
+            <div class="color-control">
+              <div class="color-swatch-wrapper">
+                <div class="color-preview" id="accentColorPreview" style="background:#10b981"></div>
+                <input type="color" id="accentColor" value="#10b981">
+              </div>
+              <input type="text" class="color-hex" id="accentColorHex" value="#10B981" maxlength="7" placeholder="#000000">
+            </div>
+          </div>
+          <div class="color-item">
+            <label for="cardBg">Card Background</label>
+            <div class="color-control">
+              <div class="color-swatch-wrapper">
+                <div class="color-preview" id="cardBgPreview" style="background:#f8fafc"></div>
+                <input type="color" id="cardBg" value="#f8fafc">
+              </div>
+              <input type="text" class="color-hex" id="cardBgHex" value="#F8FAFC" maxlength="7" placeholder="#000000">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DATA UPLOAD -->
+      <div class="section">
+        <div class="section-label">Data Source</div>
+        <div class="dropzone" id="excelDrop">
+          <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" title="Upload Excel or CSV file">
+          <div class="dropzone-icon">📊</div>
+          <div class="dropzone-text"><strong>Click or drag</strong> Excel / CSV</div>
+          <div class="dropzone-sub">.xlsx, .xls, .csv supported</div>
+          <div class="dropzone-status" id="excelStatus"></div>
+        </div>
+      </div>
+
+      <!-- PHOTOS UPLOAD -->
+      <div class="section">
+        <div class="section-label">Student Photos</div>
+        <div class="dropzone" id="photoDrop">
+          <input type="file" id="photoFiles" accept="image/*" multiple title="Upload student photos">
+          <div class="dropzone-icon">🖼️</div>
+          <div class="dropzone-text"><strong>Click or drag</strong> photos</div>
+          <div class="dropzone-sub">Multiple images, matched by filename</div>
+          <div class="dropzone-status" id="photoStatus"></div>
+        </div>
+      </div>
+
+      <!-- TEMPLATE -->
+      <div class="section">
+        <div class="section-label">Custom Template (optional)</div>
+        <div class="dropzone" id="templateDrop">
+          <input type="file" id="templateFile" accept="image/*" title="Upload background image">
+          <div class="dropzone-icon">🎨</div>
+          <div class="dropzone-text"><strong>Click or drag</strong> background image</div>
+          <div class="dropzone-sub">Replaces built-in card design</div>
+          <div class="dropzone-status" id="templateStatus"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="sidebar-actions">
+      <button class="btn btn-primary" id="generateBtn" onclick="generateAll()">
+        ⚡ Generate All Cards
+      </button>
+      <button class="btn btn-secondary" id="downloadBtn" onclick="downloadZip()" disabled>
+        ⬇ Download ZIP
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabPreviewBtn" onclick="switchTab('preview')">
+        👁 Live Preview
+      </button>
+      <button class="tab-btn" id="tabGeneratedBtn" onclick="switchTab('generated')">
+        🗂 Generated Cards
+        <span class="tab-badge" id="cardBadge">0</span>
+      </button>
+    </div>
+
+    <!-- PREVIEW TAB -->
+    <div class="tab-panel active" id="tabPreview">
+      <div class="preview-panel" id="previewPanel">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">🪪</div>
+          <h3>No data loaded yet</h3>
+          <p>Upload an Excel or CSV file to preview ID cards. Controls on the left update the preview in real-time.</p>
+        </div>
+        <div id="previewContent" style="display:none; width:100%; max-width:760px; display:none; flex-direction:column; align-items:center; gap:16px;">
+          <div class="preview-canvas-wrap">
+            <canvas id="previewCanvas" width="856" height="540"></canvas>
+          </div>
+          <div class="preview-nav">
+            <button id="prevBtn" onclick="navigate(-1)" disabled>‹</button>
+            <span id="navLabel">Student 1 of 1</span>
+            <button id="nextBtn" onclick="navigate(1)" disabled>›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GENERATED TAB -->
+    <div class="tab-panel" id="tabGenerated">
+      <div class="generated-panel">
+        <div class="progress-wrap" id="progressWrap" style="display:none">
+          <div class="progress-label">
+            <span id="progressText">Generating...</span>
+            <span id="progressPct">0%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+        <div class="generated-empty" id="generatedEmpty">Generate cards to see them here.</div>
+        <div class="cards-grid" id="cardsGrid"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const state = {
+  students: [],
+  photos: new Map(),
+  templateImg: null,
+  canvases: [],
+  previewIdx: 0,
+  instName: 'Springfield University',
+  instSub: 'Dept. of Academic Excellence',
+  cardTitle: 'Student ID Card',
+  titleAlign: 'left',
+  infoAlign: 'left',
+  labelColor: '#94a3b8',
+  valueColor: '#ffffff',
+  fontSize: 16,
+  hdrLeft: '#1e3a5f',
+  hdrRight: '#0e4d6b',
+  accentColor: '#10b981',
+  cardBg: '#f8fafc',
+};
+
+// ─── COLOR UTILS ─────────────────────────────────────────────────────────────
+function hexToRgb(hex) {
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? { r: parseInt(r[1],16), g: parseInt(r[2],16), b: parseInt(r[3],16) } : {r:0,g:0,b:0};
+}
+function rgbToHex(r,g,b) {
+  return '#' + [r,g,b].map(v=>Math.min(255,Math.max(0,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+function blendColor(hex1, hex2, t=0.5) {
+  const a = hexToRgb(hex1), b = hexToRgb(hex2);
+  return rgbToHex(a.r+(b.r-a.r)*t, a.g+(b.g-a.g)*t, a.b+(b.b-a.b)*t);
+}
+function darken(hex, amt=0.15) {
+  const {r,g,b} = hexToRgb(hex);
+  return rgbToHex(r*(1-amt), g*(1-amt), b*(1-amt));
+}
+
+// ─── CARD RENDER ─────────────────────────────────────────────────────────────
+const W = 856, H = 540, HDR_H = Math.round(H * 0.43);
+
+function drawCard(canvas, student, photoImg) {
+  const ctx = canvas.getContext('2d');
+  canvas.width = W; canvas.height = H;
+
+  const s = state;
+
+  // Background
+  if (s.templateImg) {
+    ctx.drawImage(s.templateImg, 0, 0, W, H);
+  } else {
+    // Card bg
+    ctx.fillStyle = s.cardBg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Header gradient
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, s.hdrLeft);
+    grad.addColorStop(0.5, blendColor(s.hdrLeft, s.hdrRight));
+    grad.addColorStop(1, s.hdrRight);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, HDR_H);
+
+    // Geometric triangles for depth
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.moveTo(W*0.55, 0); ctx.lineTo(W, 0); ctx.lineTo(W, HDR_H*0.7); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 0.07;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.moveTo(W*0.4, 0); ctx.lineTo(W*0.75, 0); ctx.lineTo(W*0.55, HDR_H); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = '#000000';
+    ctx.beginPath(); ctx.moveTo(0, HDR_H*0.3); ctx.lineTo(W*0.3, 0); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    // Accent strip (bottom-left diagonal)
+    const acDark = darken(s.accentColor, 0.2);
+    const acGrad = ctx.createLinearGradient(0, H-80, 200, H);
+    acGrad.addColorStop(0, s.accentColor);
+    acGrad.addColorStop(1, acDark);
+    ctx.fillStyle = acGrad;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(0, H-62);
+    ctx.lineTo(220, H-62);
+    ctx.lineTo(180, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Second accent layer
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = darken(s.accentColor, 0.35);
+    ctx.beginPath();
+    ctx.moveTo(0, H-62);
+    ctx.lineTo(90, H-62);
+    ctx.lineTo(60, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Bottom border line
+    ctx.fillStyle = darken(s.cardBg, 0.08);
+    ctx.fillRect(0, H-1, W, 1);
+  }
+
+  // ── Logo / Institution block (top-right) ──
+  const logoX = W - 20, logoY = 14;
+  const circR = 22;
+  // Measure texts
+  ctx.font = `bold 14px 'DM Sans', sans-serif`;
+  const nameW = ctx.measureText(s.instName).width;
+  ctx.font = `12px 'DM Sans', sans-serif`;
+  const subW = ctx.measureText(s.instSub).width;
+  const textW = Math.max(nameW, subW);
+  const blockW = circR*2 + 8 + textW;
+  const blockX = W - 20 - blockW;
+
+  // Circle
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(blockX + circR, logoY + circR, circR, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.fill();
+  // Mortarboard icon
+  ctx.font = `20px serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = s.hdrLeft;
+  ctx.fillText('🎓', blockX + circR, logoY + circR + 1);
+  ctx.restore();
+
+  // Institution text
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.font = `bold 14px 'DM Sans', sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(s.instName, blockX + circR*2 + 8, logoY + 6);
+  ctx.font = `12px 'DM Sans', sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillText(s.instSub, blockX + circR*2 + 8, logoY + 24);
+
+  // ── Card Title ──
+  const rightHalfStart = W * 0.45;
+  const rightHalfEnd = W - 24;
+  ctx.font = `bold 22px 'Playfair Display', serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.textBaseline = 'top';
+  const titleY = HDR_H - 42;
+  const titleW2 = ctx.measureText(s.cardTitle).width;
+  let titleX;
+  if (s.titleAlign === 'left') titleX = rightHalfStart + 10;
+  else if (s.titleAlign === 'right') titleX = rightHalfEnd - titleW2;
+  else titleX = (rightHalfStart + rightHalfEnd - titleW2) / 2;
+  ctx.fillText(s.cardTitle, titleX, titleY);
+
+  // Underline
+  ctx.fillStyle = s.accentColor;
+  ctx.fillRect(titleX, titleY + 28, Math.min(titleW2, 120), 3);
+
+  // ── Photo circle ──
+  const photoX = 48 + 65;
+  const photoY = HDR_H + (H - HDR_H) / 2;
+  const photoR = 70;
+
+  ctx.save();
+  // White ring
+  ctx.beginPath();
+  ctx.arc(photoX, photoY, photoR + 5, 0, Math.PI*2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  // Shadow ring
+  ctx.shadowColor = 'rgba(0,0,0,0.2)';
+  ctx.shadowBlur = 10;
+  ctx.fill();
+  ctx.restore();
+
+  // Clip photo
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(photoX, photoY, photoR, 0, Math.PI*2);
+  ctx.clip();
+  if (photoImg) {
+    // Cover fit
+    const ar = photoImg.width / photoImg.height;
+    const diameter = photoR * 2;
+    let sw, sh, sx, sy;
+    if (ar > 1) { sh = diameter; sw = diameter * ar; sx = photoX - photoR - (sw - diameter)/2; sy = photoY - photoR; }
+    else { sw = diameter; sh = diameter / ar; sx = photoX - photoR; sy = photoY - photoR - (sh - diameter)/2; }
+    ctx.drawImage(photoImg, sx, sy, sw, sh);
+  } else {
+    // Placeholder
+    ctx.fillStyle = '#dde6f0';
+    ctx.fillRect(photoX - photoR, photoY - photoR, photoR*2, photoR*2);
+    ctx.font = '56px serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('👤', photoX, photoY + 4);
+  }
+  ctx.restore();
+
+  // ── Barcode (decorative) ──
+  const bcX = photoX - 54, bcY = photoY + photoR + 14, bcW = 108, bcH = 28;
+  // Seeded barcode bars
+  function seededRand(seed) {
+    let x = Math.sin(seed + 1) * 10000;
+    return x - Math.floor(x);
+  }
+  const seed = student.id ? parseInt(student.id.toString().replace(/\D/g,'').slice(0,6) || '12345') : 42;
+  ctx.fillStyle = darken(s.cardBg, 0.4);
+  ctx.fillRect(bcX, bcY, bcW, bcH);
+  let bx = bcX + 3;
+  let si = 0;
+  while (bx < bcX + bcW - 3) {
+    const bw = Math.round(seededRand(seed + si) * 3) + 1;
+    const isBlack = seededRand(seed + si + 100) > 0.45;
+    if (isBlack) {
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(bx, bcY + 3, bw, bcH - 6);
+    }
+    bx += bw + 1;
+    si++;
+  }
+  // Barcode number
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = darken(s.cardBg, 0.5);
+  const bcNum = student.id ? student.id.toString().padStart(12,'0').slice(0,12) : '000000000000';
+  ctx.fillText(bcNum, photoX, bcY + bcH + 3);
+
+  // ── Info fields ──
+  const infoLeft = W * 0.45 + 10;
+  const infoRight = W - 24;
+  const infoTop = HDR_H + 20;
+  const infoBottom = H - 24;
+  const infoAvail = infoBottom - infoTop;
+
+  const fields = [
+    { label: 'Name', value: student.name },
+    { label: 'Student ID', value: student.id },
+    { label: 'Class', value: student.class },
+    { label: 'D.O.B', value: student.dob },
+    { label: 'Phone', value: student.phone },
+    { label: 'Address', value: student.address },
+  ].filter(f => f.value && String(f.value).trim() !== '');
+
+  const lineH = fields.length > 0 ? Math.min(infoAvail / fields.length, 48) : 48;
+  const fs = s.fontSize;
+
+  fields.forEach((f, i) => {
+    const cy = infoTop + i * lineH + lineH / 2;
+    const val = String(f.value);
+
+    if (s.infoAlign === 'left') {
+      // Label left, value below or inline
+      ctx.font = `500 ${fs - 3}px 'DM Sans', sans-serif`;
+      ctx.fillStyle = s.labelColor;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(f.label + ':', infoLeft, cy - 6);
+      ctx.font = `600 ${fs - 1}px 'DM Sans', sans-serif`;
+      ctx.fillStyle = s.valueColor;
+      ctx.fillText(val, infoLeft, cy + 10);
+    } else {
+      const combined = f.label + ': ' + val;
+      ctx.font = `600 ${fs - 1}px 'DM Sans', sans-serif`;
+      ctx.fillStyle = s.valueColor;
+      const cw = ctx.measureText(combined).width;
+      let cx;
+      if (s.infoAlign === 'right') cx = infoRight - cw;
+      else cx = (infoLeft + infoRight - cw) / 2;
+      // Label portion
+      const lpart = f.label + ': ';
+      ctx.font = `500 ${fs - 3}px 'DM Sans', sans-serif`;
+      ctx.fillStyle = s.labelColor;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(lpart, cx, cy);
+      const lw = ctx.measureText(lpart).width;
+      ctx.font = `600 ${fs - 1}px 'DM Sans', sans-serif`;
+      ctx.fillStyle = s.valueColor;
+      ctx.fillText(val, cx + lw, cy);
+    }
+  });
+
+  // Divider line between photo area and info
+  ctx.strokeStyle = darken(s.cardBg, 0.12);
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(W * 0.44, HDR_H + 16);
+  ctx.lineTo(W * 0.44, H - 16);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ─── PREVIEW ─────────────────────────────────────────────────────────────────
+function getStudentPhoto(student) {
+  if (!student.photo) return null;
+  const key = student.photo.toString().toLowerCase().trim();
+  return state.photos.get(key) || null;
+}
+
+function renderPreview() {
+  const canvas = document.getElementById('previewCanvas');
+  const student = state.students[state.previewIdx] || makeDemoStudent();
+  drawCard(canvas, student, getStudentPhoto(student));
+  updateNavUI();
+}
+
+function makeDemoStudent() {
+  return { name: 'Jane Doe', id: 'STU-2024-001', class: 'Computer Science', dob: '01/15/2002', phone: '+1 555-0100', address: '123 Campus Drive' };
+}
+
+let debounceTimer;
+function schedulePreview() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(renderPreview, 60);
+}
+
+function updateNavUI() {
+  const n = state.students.length;
+  const i = state.previewIdx;
+  document.getElementById('navLabel').textContent = n > 0 ? `Student ${i+1} of ${n}` : 'Preview Mode';
+  document.getElementById('prevBtn').disabled = i <= 0;
+  document.getElementById('nextBtn').disabled = i >= n - 1;
+
+  if (n > 0) {
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('previewContent').style.display = 'flex';
+  } else {
+    document.getElementById('emptyState').style.display = 'flex';
+    document.getElementById('previewContent').style.display = 'none';
+  }
+}
+
+function navigate(dir) {
+  state.previewIdx = Math.max(0, Math.min(state.students.length - 1, state.previewIdx + dir));
+  renderPreview();
+}
+
+// ─── GENERATE ALL ─────────────────────────────────────────────────────────────
+async function generateAll() {
+  if (state.students.length === 0) {
+    alert('Please upload student data first (Excel/CSV).');
+    return;
+  }
+  switchTab('generated');
+  state.canvases = [];
+  const grid = document.getElementById('cardsGrid');
+  const generatedEmpty = document.getElementById('generatedEmpty');
+  grid.innerHTML = '';
+  generatedEmpty.style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('downloadBtn').disabled = true;
+
+  for (let i = 0; i < state.students.length; i++) {
+    const student = state.students[i];
+    const pct = Math.round((i / state.students.length) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressText').textContent = `Generating card ${i+1} of ${state.students.length}…`;
+    document.getElementById('progressPct').textContent = pct + '%';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    drawCard(canvas, student, getStudentPhoto(student));
+    state.canvases.push(canvas);
+
+    // Add to grid
+    const item = document.createElement('div');
+    item.className = 'card-item';
+    item.appendChild(canvas);
+    const footer = document.createElement('div');
+    footer.className = 'card-item-footer';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'card-item-name';
+    nameEl.textContent = student.name || `Card ${i+1}`;
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'card-dl-btn';
+    dlBtn.textContent = '⬇ PNG';
+    dlBtn.onclick = () => downloadCard(canvas, student.name || `card-${i+1}`);
+    footer.appendChild(nameEl);
+    footer.appendChild(dlBtn);
+    item.appendChild(footer);
+    grid.appendChild(item);
+
+    // Yield to browser
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  document.getElementById('progressFill').style.width = '100%';
+  document.getElementById('progressPct').textContent = '100%';
+  document.getElementById('progressText').textContent = `✓ ${state.students.length} cards generated`;
+  setTimeout(() => document.getElementById('progressWrap').style.display = 'none', 2000);
+  document.getElementById('downloadBtn').disabled = false;
+  const badge = document.getElementById('cardBadge');
+  badge.textContent = state.students.length;
+  badge.classList.add('visible');
+}
+
+function downloadCard(canvas, name) {
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = (name || 'id-card').replace(/\s+/g, '_') + '.png';
+  a.click();
+}
+
+async function downloadZip() {
+  if (!state.canvases.length) return;
+  const btn = document.getElementById('downloadBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Building ZIP…';
+  const zip = new JSZip();
+  const folder = zip.folder('id-cards');
+  for (let i = 0; i < state.canvases.length; i++) {
+    const name = (state.students[i]?.name || `card-${i+1}`).replace(/\s+/g,'_');
+    const dataUrl = state.canvases[i].toDataURL('image/png');
+    const b64 = dataUrl.split(',')[1];
+    folder.file(`${name}.png`, b64, {base64: true});
+  }
+  const blob = await zip.generateAsync({type: 'blob'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'id-cards.zip';
+  a.click();
+  btn.disabled = false;
+  btn.textContent = '⬇ Download ZIP';
+}
+
+// ─── TAB SWITCHING ────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Btn').classList.add('active');
+  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+}
+
+// ─── DATA LOADING ─────────────────────────────────────────────────────────────
+function normalizeKey(k) { return k.toLowerCase().replace(/[\s_\-\.]/g,''); }
+
+function mapRow(row) {
+  const norm = {};
+  for (const [k,v] of Object.entries(row)) norm[normalizeKey(k)] = v;
+  const get = (...keys) => { for (const k of keys) { if (norm[k] !== undefined) return norm[k]; } return ''; };
+  return {
+    name:    get('name','fullname','studentname'),
+    id:      get('id','studentid','rollno','rollnumber','regno'),
+    class:   get('class','department','grade','section','course','program'),
+    dob:     get('dob','dateofbirth','birthdate','birthday'),
+    phone:   get('phone','mobile','contact','tel','telephone','phonenumber'),
+    address: get('address','addr','location'),
+    photo:   get('photo','image','filename','photofile','imagefile','picture'),
+  };
+}
+
+function loadExcel(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const wb = XLSX.read(e.target.result, {type:'binary'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+    state.students = rows.map(mapRow);
+    state.previewIdx = 0;
+    document.getElementById('excelStatus').textContent = `✓ ${state.students.length} students loaded`;
+    renderPreview();
+  };
+  reader.readAsBinaryString(file);
+}
+
+function loadPhotos(files) {
+  let done = 0;
+  for (const file of files) {
+    const key = file.name.toLowerCase();
+    const img = new Image();
+    img.onload = () => {
+      state.photos.set(key, img);
+      done++;
+      if (done === files.length) {
+        document.getElementById('photoStatus').textContent = `✓ ${files.length} photos loaded`;
+        schedulePreview();
+      }
+    };
+    img.src = URL.createObjectURL(file);
+  }
+}
+
+function loadTemplate(file) {
+  const img = new Image();
+  img.onload = () => {
+    state.templateImg = img;
+    document.getElementById('templateStatus').textContent = '✓ Template loaded';
+    schedulePreview();
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+// ─── DROP ZONE SETUP ──────────────────────────────────────────────────────────
+function setupDrop(zoneId, inputId, handler) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  input.addEventListener('change', e => { if (e.target.files.length) handler(e.target.files); });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const files = e.dataTransfer.files;
+    if (files.length) handler(files);
+  });
+}
+
+// ─── SYNC COLOR INPUTS ────────────────────────────────────────────────────────
+function setupColor(colorId, hexId, previewId, stateKey) {
+  const colorEl = document.getElementById(colorId);
+  const hexEl = document.getElementById(hexId);
+  const prevEl = document.getElementById(previewId);
+
+  function update(val) {
+    if (!/^#[0-9a-f]{6}$/i.test(val)) return;
+    state[stateKey] = val.toLowerCase();
+    colorEl.value = val;
+    hexEl.value = val.toUpperCase();
+    prevEl.style.background = val;
+    schedulePreview();
+  }
+
+  colorEl.addEventListener('input', () => update(colorEl.value));
+  hexEl.addEventListener('input', () => { if (hexEl.value.length === 7) update(hexEl.value); });
+}
+
+// ─── ALIGN GROUPS ─────────────────────────────────────────────────────────────
+function setupAlignGroup(groupId, stateKey) {
+  const group = document.getElementById(groupId);
+  group.querySelectorAll('.align-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      group.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state[stateKey] = btn.dataset.val;
+      schedulePreview();
+    });
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+function init() {
+  // Text inputs
+  ['instName','instSub','cardTitle'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => { state[id] = el.value; schedulePreview(); });
+  });
+
+  // Font size
+  const fsEl = document.getElementById('fontSize');
+  fsEl.addEventListener('input', () => {
+    state.fontSize = parseInt(fsEl.value);
+    document.getElementById('fontSizeVal').textContent = fsEl.value + 'px';
+    schedulePreview();
+  });
+
+  // Colors
+  setupColor('labelColor','labelColorHex','labelColorPreview','labelColor');
+  setupColor('valueColor','valueColorHex','valueColorPreview','valueColor');
+  setupColor('hdrLeft','hdrLeftHex','hdrLeftPreview','hdrLeft');
+  setupColor('hdrRight','hdrRightHex','hdrRightPreview','hdrRight');
+  setupColor('accentColor','accentColorHex','accentColorPreview','accentColor');
+  setupColor('cardBg','cardBgHex','cardBgPreview','cardBg');
+
+  // Align groups
+  setupAlignGroup('titleAlignGroup','titleAlign');
+  setupAlignGroup('infoAlignGroup','infoAlign');
+
+  // Drop zones
+  setupDrop('excelDrop','excelFile', files => loadExcel(files[0]));
+  setupDrop('photoDrop','photoFiles', files => loadPhotos(Array.from(files)));
+  setupDrop('templateDrop','templateFile', files => loadTemplate(files[0]));
+
+  // Color swatch click passthrough
+  document.querySelectorAll('.color-swatch-wrapper').forEach(sw => {
+    sw.addEventListener('click', () => sw.querySelector('input[type="color"]').click());
+  });
+
+  // Initial preview (demo)
+  updateNavUI();
+  renderPreview();
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
